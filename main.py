@@ -54,7 +54,7 @@ def get_config():
 
 if __name__ == "__main__":
     config = get_config()
-    agent = get_rl_agent(config.algo)
+    agent = get_rl_agent(config)
     env = get_env(config.env)
     storage = get_replay_buffer()
     training_fn=get_training_stage()
