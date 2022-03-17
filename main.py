@@ -9,15 +9,20 @@ from training_stage import get_training_stage
 def get_config():
     parser = argparse.ArgumentParser(description="RL")
     parser.add_argument(
-        "--env",
-        type=str,
-        help="Gym environment name, default: CartPole-v0",
-    )
-    parser.add_argument(
         "--algo",
         type=str,
         default="sac",
         help="which RL algo",
+    )
+    given_configs, remaining = parser.parse_known_args()
+    with open(f"config_files/{given_configs.algo}.yml", "r") as f:
+        hyper = yaml.safe_load(f)
+        parser.set_defaults(**hyper)
+
+    parser.add_argument(
+        "--env",
+        type=str,
+        help="Gym environment name, default: CartPole-v0",
     )
     parser.add_argument(
         "--save_model_path",
@@ -33,22 +38,15 @@ def get_config():
     )
     parser.add_argument("--batch_size", type=int, help="Batch size, default: 256")
     parser.add_argument("--hidden_dim", type=int, help="dimension of hidden layer 256")
-    # parser.add_argument(
-    #     "-o",
-    #     "--out_of_dist",
-    #     help="whether test out of distribution",
-    #     default=False,
-    #     action="store_true",
-    # )
+
     args = parser.parse_args()
-    with open(f"{args.algo}.yml", "r") as f:
-        hyper = yaml.safe_load(f)
-    hyper.update(vars(args))
-    return hyper
+    args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
+
+    return args, args_text
 
 
 if __name__ == "__main__":
-    config = get_config()
+    config, config_text = get_config()
     print(str(config))
     # agent = get_rl_agent(config)
     # env = get_env(config.env)
