@@ -1,5 +1,6 @@
 env:
-  CartPole-v0
+  BipedalWalker-v3 
+  # MountainCarContinuous-v0
 hidden_dim:
   256
 gamma:
@@ -26,3 +27,7 @@ save_every:
   10
 batch_size:
   256
+buffer_size:
+  100000
+buffer_type:
+  normal

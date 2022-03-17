@@ -1,9 +1,13 @@
 import numpy as np
 
 
-def get_replay_buffer(type="normal"):
-    if type=="normal":
-        return normal_replay_buffer()
+def get_replay_buffer(env, config):
+    if config.buffer_type == "normal":
+        return normal_replay_buffer(
+            size=config.buffer_size,
+            state_dim=env.observation_space.shape[0],
+            action_dim=env.action_space.shape[0],
+        )
     else:
         raise TypeError(f"replay buffer type : {type} not supported")
 
@@ -34,7 +38,7 @@ class normal_replay_buffer:
             self.actions[index],
             self.rewards[index],
             self.next_states[index],
-            self.dones[index]
+            self.dones[index],
         )
 
     def __len__(self):

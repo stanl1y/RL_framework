@@ -47,9 +47,8 @@ def get_config():
 
 if __name__ == "__main__":
     config, config_text = get_config()
-    print(str(config))
-    # agent = get_rl_agent(config)
-    # env = get_env(config.env)
-    # storage = get_replay_buffer()
+    env = get_env(config.env)
+    agent = get_rl_agent(env,config)
+    storage = get_replay_buffer(env,config)
     # training_fn=get_training_stage()
     # training_fn.train(agent,env,storage)
