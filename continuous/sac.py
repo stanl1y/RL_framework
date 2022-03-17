@@ -22,7 +22,6 @@ class sac(base_agent):
         critic_lr=3e-4,
         alpha_lr=3e-4,
         tau=0.01,
-        init_temperature=0.1,
     ):
         if action_lower == -1 and action_upper == 1:
             activation = "tanh"
@@ -45,7 +44,7 @@ class sac(base_agent):
             tau=tau,
         )
         self.target_entropy = -action_dim
-        self.log_alpha = torch.tensor(torch.log(init_temperature)).to(device)
+        self.log_alpha = torch.zeros(1).to(device)
         self.log_alpha.requires_grad = True
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=alpha_lr)
 
