@@ -1,4 +1,6 @@
 from base_agent import base_agent
+from ounoise import OUNoise
+
 import torch
 
 if torch.cuda.is_available():
@@ -22,15 +24,16 @@ class sac(base_agent):
         critic_lr=3e-4,
         alpha_lr=3e-4,
         tau=0.01,
+        batch_size=256,
+        use_ounoise=False,
+        log_alpha_init=0
     ):
-        if action_lower == -1 and action_upper == 1:
-            activation = "tanh"
-        elif action_lower == 0 and action_upper == 1:
-            activation = "sigmoid"
+
         super().__init__(
             observation_dim=observation_dim,
             action_dim=action_dim,
-            activation=activation,
+            action_lower=action_lower,
+            action_upper=action_upper,
             critic_num=2,
             hidden_dim=hidden_dim,
             policy_type="stochastic",
@@ -42,37 +45,45 @@ class sac(base_agent):
             actor_lr=actor_lr,
             critic_lr=critic_lr,
             tau=tau,
+            batch_size=batch_size,
         )
         self.target_entropy = -action_dim
-        self.log_alpha = torch.zeros(1).to(device)
+        self.log_alpha = torch.ones(1).to(device)*log_alpha_init
         self.log_alpha.requires_grad = True
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=alpha_lr)
+        self.ounoise = (
+            OUNoise(action_dimension=action_dim, scale=action_upper - action_lower)
+            if use_ounoise
+            else None
+        )
 
     @property
     def alpha(self):
         return self.log_alpha.exp()
 
     def act(self, state, testing=False):
-        state = torch.tensor(state).to(device)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        with torch.no_grad():
+            action, log_prob, mu = self.actor.sample(state)
         if not testing:
-            return self.actor.forward_and_sample(state)
+            if self.ounoise is not None:
+                return action[0].cpu().numpy() + self.ounoise.noise()
+            else:
+                return action[0].cpu().numpy()
         else:
-            mu, std = self.actor.forward(state)
-            return mu
+            return mu[0].cpu().numpy()
 
     def update_critic(self, state, action, reward, next_state, done):
 
         """compute target value"""
         with torch.no_grad():
-            mu, std, dist = self.actor(next_state)
-            next_action = dist.sample()
-            next_log_prob = dist.log_prob(next_action).sum(-1, keepdim=True)
+            next_action, next_log_prob, next_mu = self.actor.sample(next_state)
             target_q_val = [
                 critic_target(next_state, next_action)
                 for critic_target in self.critic_target
             ]
             target_value = reward + self.gamma * (1 - done) * (
-                min(target_q_val[0], target_q_val[1]) - self.alpha * next_log_prob
+                torch.min(target_q_val[0], target_q_val[1]) - self.alpha * next_log_prob
             )
 
         """compute loss and update"""
@@ -83,15 +94,13 @@ class sac(base_agent):
             self.critic_optimizer[i].zero_grad()
             critic_loss[i].backward()
             self.critic_optimizer[i].step()
+        return critic_loss
 
     def update_actor(self, state):
-
-        mu, std, dist = self.actor(state)
-        action_tilda = dist.rsample()
+        action_tilda, log_prob, mu = self.actor.sample(state)
         q_val = [critic(state, action_tilda) for critic in self.critic]
-        log_prob = dist.log_prob(action_tilda).sum(-1, keepdim=True)
         entropy_loss = -self.alpha.detach() * log_prob
-        actor_loss = (-(min(q_val[0], q_val[1]) + entropy_loss)).mean()
+        actor_loss = (-(torch.min(q_val[0], q_val[1]) + entropy_loss)).mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
@@ -101,18 +110,26 @@ class sac(base_agent):
         self.log_alpha_optimizer.zero_grad()
         alpha_loss.backward()
         self.log_alpha_optimizer.step()
+        return actor_loss, alpha_loss
 
-    def update(self, storage, batch_size=128):
+    def update(self, storage):
 
         """sample data"""
-        state, action, reward, next_state, done = storage.sample(batch_size)
-        state = torch.from_numpy(state).to(device)
-        action = torch.from_numpy(action).to(device)
-        reward = torch.from_numpy(reward).to(device)
-        next_state = torch.from_numpy(next_state).to(device)
-        done = torch.from_numpy(done).to(device)
+        state, action, reward, next_state, done = storage.sample(self.batch_size)
+        state = torch.FloatTensor(state).to(device)
+        action = torch.FloatTensor(action).to(device)
+        reward = torch.FloatTensor(reward).to(device)
+        next_state = torch.FloatTensor(next_state).to(device)
+        done = torch.FloatTensor(done).to(device)
 
         """update model"""
-        self.update_critic(state, action, reward, next_state, done)
-        self.update_actor(state)
+        critic_loss = self.update_critic(state, action, reward, next_state, done)
+        actor_loss, alpha_loss = self.update_actor(state)
         self.soft_update_target()
+        return {
+            "critic0_loss": critic_loss[0],
+            "critic1_loss": critic_loss[1],
+            "actor_loss": actor_loss,
+            "alpha_loss": alpha_loss,
+            "alpha": self.alpha,
+        }

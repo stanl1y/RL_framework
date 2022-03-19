@@ -1,5 +1,5 @@
 env:
-  BipedalWalker-v3 
+  BipedalWalker-v3
   # MountainCarContinuous-v0
 hidden_dim:
   256
@@ -10,13 +10,13 @@ actor_optim:
 critic_optim:
   adam
 actor_lr:
-  3e-4
+  0.0003
 critic_lr:
-  3e-4
+  0.0003
 alpha_lr:
-  3e-4
+  0.0003
 tau:
-  0.01
+  0.005
 save_model_path:
   ./model_weight/sac
 episodes:
@@ -28,6 +28,16 @@ save_every:
 batch_size:
   256
 buffer_size:
-  100000
+  1000000
 buffer_type:
   normal
+training_stage_type:
+  off_policy
+buffer_warmup:
+  True
+buffer_warmup_step:
+  2000
+use_ounoise:
+  False
+log_alpha_init:
+  !!float 0

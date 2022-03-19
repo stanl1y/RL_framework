@@ -9,7 +9,7 @@ def get_replay_buffer(env, config):
             action_dim=env.action_space.shape[0],
         )
     else:
-        raise TypeError(f"replay buffer type : {type} not supported")
+        raise TypeError(f"replay buffer type : {config.buffer_type} not supported")
 
 
 class normal_replay_buffer:
@@ -32,7 +32,7 @@ class normal_replay_buffer:
         self.storage_index += 1
 
     def sample(self, batch_size):
-        index = np.random.randint(self.storage_index, size=batch_size)
+        index = np.random.randint(min(self.storage_index,self.size), size=batch_size)
         return (
             self.states[index],
             self.actions[index],

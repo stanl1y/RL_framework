@@ -14,7 +14,8 @@ class base_agent:
         self,
         observation_dim,
         action_dim,
-        activation="tanh",
+        action_lower=-1,
+        action_upper=1,
         critic_num=1,
         hidden_dim=256,
         policy_type="stochastic",
@@ -25,18 +26,22 @@ class base_agent:
         critic_optim="adam",
         actor_lr=3e-4,
         critic_lr=3e-4,
-        tau=0.01
+        tau=0.01,
+        batch_size=256,
     ):
         self.observation_dim = observation_dim
         self.action_dim = action_dim
         self.hidden_dim = hidden_dim
         self.critic_num = critic_num
         self.gamma = gamma
-        self.tau=tau
+        self.tau = tau
+        self.batch_size = batch_size
         self.critic_criterion = nn.MSELoss()
+        self.action_scale = (action_upper - action_lower) / 2
+        self.action_bias = (action_upper + action_lower) / 2
 
         """actor"""
-        self.actor = self.get_new_actor(activation, policy_type)
+        self.actor = self.get_new_actor(policy_type)
         if actor_optim == "adam":
             self.actor_optimizer = torch.optim.Adam(
                 self.actor.parameters(), lr=actor_lr
@@ -65,20 +70,28 @@ class base_agent:
         else:
             self.critic_target = None
 
-    def get_new_actor(self, activation, policy_type):
+    def get_new_actor(self, policy_type):
         if policy_type == "stochastic":
             return StochasticPolicyNet(
-                self.observation_dim, self.hidden_dim, self.action_dim, activation
+                self.observation_dim,
+                self.hidden_dim,
+                self.action_dim,
+                self.action_scale,
+                self.action_bias,
             ).to(device)
         else:
             return DeterministicPolicyNet(
-                self.observation_dim, self.hidden_dim, self.action_dim, activation
+                self.observation_dim,
+                self.hidden_dim,
+                self.action_dim,
+                self.action_scale,
+                self.action_bias,
             ).to(device)
 
     def get_new_critic(self):
-        return CriticNet(
-            self.observation_dim + self.action_dim, self.hidden_dim, 1, None
-        ).to(device)
+        return CriticNet(self.observation_dim + self.action_dim, self.hidden_dim, 1).to(
+            device
+        )
 
     def soft_update_target(self):
         if self.actor_target is not None:
@@ -108,52 +121,61 @@ class base_agent:
 
 
 class DeterministicPolicyNet(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, activation):
+    def __init__(self, input_dim, hidden_dim, output_dim, action_scale, action_bias):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.fc4 = nn.Linear(hidden_dim, output_dim)
-        if activation == "tanh":
-            self.output_activation = nn.Tanh()
-        elif activation == "sigmoid":
-            self.output_activation = nn.Sigmoid()
-        else:
-            self.output_activation = None
+        self.output_activation = nn.Tanh()
+        self.action_scale = action_scale
+        self.action_bias = action_bias
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
-        if self.output_activation is not None:
-            x = self.output_activation(x)
+        x = self.output_activation(x)
+        x = x * self.action_scale + self.action_bias
         return x
 
 
 class StochasticPolicyNet(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, activation):
+    def __init__(self, input_dim, hidden_dim, output_dim, action_scale, action_bias):
         super().__init__()
+        self.max_logstd = 2
+        self.min_logstd = -20
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.mu = nn.Linear(hidden_dim, output_dim)
-        self.std = nn.Linear(hidden_dim, output_dim)
-        if activation == "tanh":
-            self.output_activation = nn.Tanh()
-        elif activation == "sigmoid":
-            self.output_activation = nn.Sigmoid()
-        else:
-            self.output_activation = None
+        self.logstd = nn.Linear(hidden_dim, output_dim)
+        self.action_scale = action_scale
+        self.action_bias = action_bias
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         mu = self.mu(x)
-        std = self.std(x)
+        logstd = self.logstd(x)
+        logstd = torch.clamp(logstd, min=self.min_logstd, max=self.max_logstd)
+        # dist = torch.distributions.normal.Normal(mu, std)
+        return mu, logstd
+
+    def sample(self, x):
+        mu, logstd = self.forward(x)
+        std = logstd.exp()
         dist = torch.distributions.normal.Normal(mu, std)
-        return mu, std, dist
+        x = dist.rsample()
+        x_norm = torch.tanh(x)
+        action = x_norm * self.action_scale + self.action_bias
+        log_prob = dist.log_prob(x)
+        log_prob -= torch.log(self.action_scale * (1 - x_norm.pow(2)) + 1e-8)
+        log_prob = log_prob.sum(-1, keepdim=True)
+        mu = torch.tanh(mu) * self.action_scale + self.action_bias
+        return action, log_prob, mu
 
 
 class CriticNet(nn.Module):
@@ -165,6 +187,8 @@ class CriticNet(nn.Module):
         self.fc4 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, s, a):
+        s=s.float()
+        a=a.float()
         x = torch.cat((s, a), 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
