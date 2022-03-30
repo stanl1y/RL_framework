@@ -3,8 +3,7 @@ import yaml
 from rl_algo import get_rl_agent
 from envs import get_env
 from replay_buffer import get_replay_buffer
-from training_stage import get_training_stage
-
+from main_stage import get_main_stage
 
 
 def get_config():
@@ -39,7 +38,9 @@ def get_config():
     )
     parser.add_argument("--batch_size", type=int, help="Batch size, default: 256")
     parser.add_argument("--hidden_dim", type=int, help="dimension of hidden layer 256")
-    parser.add_argument("--use_ounoise", action="store_true", help="use ou noise or not")
+    parser.add_argument(
+        "--use_ounoise", action="store_true", help="use ou noise or not"
+    )
 
     args = parser.parse_args()
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
@@ -50,7 +51,8 @@ def get_config():
 if __name__ == "__main__":
     config, config_text = get_config()
     env = get_env(config.env)
-    agent = get_rl_agent(env,config)
-    storage = get_replay_buffer(env,config)
-    training_fn=get_training_stage(config)
-    training_fn.train(agent,env,storage)
+    agent = get_rl_agent(env, config)
+    storage = get_replay_buffer(env, config)
+    main_fn = get_main_stage(config)
+    main_fn.start(agent, env, storage)
+    

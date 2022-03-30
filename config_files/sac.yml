@@ -31,7 +31,7 @@ buffer_size:
   1000000
 buffer_type:
   normal
-training_stage_type:
+main_stage_type:
   off_policy
 buffer_warmup:
   True

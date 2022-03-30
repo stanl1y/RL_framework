@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import copy
+import os
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -42,12 +43,17 @@ class base_agent:
 
         """actor"""
         self.actor = self.get_new_actor(policy_type)
+
         if actor_optim == "adam":
             self.actor_optimizer = torch.optim.Adam(
                 self.actor.parameters(), lr=actor_lr
             )
         else:
             raise TypeError(f"optimizer type : {critic_optim} not supported")
+
+        self.best_actor = copy.deepcopy(self.actor)
+        self.best_actor_optimizer = copy.deepcopy(self.actor_optimizer)
+
         if actor_target:
             self.actor_target = copy.deepcopy(self.actor)
         else:
@@ -62,6 +68,7 @@ class base_agent:
             ]
         else:
             raise TypeError(f"optimizer type : {critic_optim} not supported")
+
         if self.critic_num == 1:
             self.critic = self.critic[0]
             self.critic_optimizer = self.critic_optimizer[0]
@@ -69,6 +76,9 @@ class base_agent:
             self.critic_target = copy.deepcopy(self.critic)
         else:
             self.critic_target = None
+
+        self.best_critic = copy.deepcopy(self.critic)
+        self.best_critic_optimizer = copy.deepcopy(self.critic_optimizer)
 
     def get_new_actor(self, policy_type):
         if policy_type == "stochastic":
@@ -112,6 +122,88 @@ class base_agent:
         if self.critic_target is not None:
             for idx in range(self.critic_num):
                 self.critic_target[idx].load_state_dict(self.critic[idx].state_dict())
+
+    def cache_weight(self):
+        self.best_actor = copy.deepcopy(self.actor)
+        self.best_actor_optimizer = copy.deepcopy(self.actor_optimizer)
+        self.best_critic = copy.deepcopy(self.critic)
+        self.best_critic_optimizer = copy.deepcopy(self.critic_optimizer)
+
+    def save_weight(self, best_testing_reward, algo, env, episodes):
+        path = f"./trained_model/{algo}/{env}/"
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        data = {
+            "episodes": episodes,
+            "actor_state_dict": self.best_actor.state_dict(),
+            "actor_optimizer_state_dict": self.best_actor_optimizer.state_dict(),
+            "reward": best_testing_reward,
+        }
+        if self.critic_num == 1:
+            data["critic_state_dict"] = self.best_critic.state_dict()
+            data[
+                "critic_optimizer_state_dict"
+            ] = self.best_critic_optimizer.state_dict()
+        else:
+            for idx, (model, optimizer) in enumerate(
+                zip(self.best_critic, self.best_critic_optimizer)
+            ):
+                data[f"critic_state_dict{idx}"] = model.state_dict()
+                data[f"critic_optimizer_state_dict{idx}"] = optimizer.state_dict()
+        torch.save(
+            data,
+            os.path.join(
+                path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
+            ),
+        )
+
+    def load_weight(self, algo=None, env=None, path=None):
+        if path is None:
+            assert algo is not None and env is not None
+            path = f"./trained_model/{algo}/{env}/"
+            assert os.path.isdir(path)
+            onlyfiles = [
+                os.path.join(path, f)
+                for f in os.listdir(path)
+                if os.isfile(os.path.join(path, f))
+            ]
+            path = onlyfiles[0]
+        else:
+            assert os.path.isfile(path)
+
+        checkpoint = torch.load(path)
+
+        self.actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.best_actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
+        self.best_actor_optimizer.load_state_dict(
+            checkpoint["actor_optimizer_state_dict"]
+        )
+
+        if self.critic_num == 1:
+            self.critic.load_state_dict(checkpoint["critic_state_dict"])
+            self.best_critic.load_state_dict(checkpoint["critic_state_dict"])
+            self.critic_optimizer.load_state_dict(
+                checkpoint["critic_optimizer_state_dict"]
+            )
+            self.best_critic_optimizer.load_state_dict(
+                checkpoint["critic_optimizer_state_dict"]
+            )
+        else:
+            for idx in range(self.critic_num):
+                self.critic[idx].load_state_dict(checkpoint[f"critic_state_dict{idx}"])
+                self.critic_target[idx].load_state_dict(
+                    checkpoint[f"critic_state_dict{idx}"]
+                )
+                self.best_critic[idx].load_state_dict(
+                    checkpoint[f"critic_state_dict{idx}"]
+                )
+                self.critic_optimizer[idx].load_state_dict(
+                    checkpoint[f"critic_optimizer_state_dict{idx}"]
+                )
+                self.best_critic_optimizer[idx].load_state_dict(
+                    checkpoint[f"critic_optimizer_state_dict{idx}"]
+                )
 
     def act(self):
         raise NotImplementedError
@@ -187,8 +279,8 @@ class CriticNet(nn.Module):
         self.fc4 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, s, a):
-        s=s.float()
-        a=a.float()
+        s = s.float()
+        a = a.float()
         x = torch.cat((s, a), 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
