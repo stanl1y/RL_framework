@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import pickle
 
 
 def get_replay_buffer(env, config):
@@ -32,7 +34,7 @@ class normal_replay_buffer:
         self.storage_index += 1
 
     def sample(self, batch_size):
-        index = np.random.randint(min(self.storage_index,self.size), size=batch_size)
+        index = np.random.randint(min(self.storage_index, self.size), size=batch_size)
         return (
             self.states[index],
             self.actions[index],
@@ -40,6 +42,25 @@ class normal_replay_buffer:
             self.next_states[index],
             self.dones[index],
         )
+
+    def write_storage(self, based_on_transition_num, expert_data_num, algo, env_id):
+        path = f"./saved_expert_transition/{env_id}/{algo}/"
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        data = {
+            "states": self.states,
+            "actions": self.actions,
+            "rewards": self.rewards,
+            "next_states": self.next_states,
+            "dones": self.dones,
+        }
+        if based_on_transition_num:
+            file_name=f"transition_num{expert_data_num}.pkl"
+        else:
+            file_name=f"episode_num{expert_data_num}.pkl"
+
+        with open(os.path.join(path, file_name), "wb") as handle:
+            pickle.dump(data, handle)
 
     def __len__(self):
         return min(self.storage_index, self.size)

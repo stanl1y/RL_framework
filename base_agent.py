@@ -129,8 +129,8 @@ class base_agent:
         self.best_critic = copy.deepcopy(self.critic)
         self.best_critic_optimizer = copy.deepcopy(self.critic_optimizer)
 
-    def save_weight(self, best_testing_reward, algo, env, episodes):
-        path = f"./trained_model/{algo}/{env}/"
+    def save_weight(self, best_testing_reward, algo, env_id, episodes):
+        path = f"./trained_model/{algo}/{env_id}/"
         if not os.path.isdir(path):
             os.makedirs(path)
         data = {
@@ -157,15 +157,15 @@ class base_agent:
             ),
         )
 
-    def load_weight(self, algo=None, env=None, path=None):
+    def load_weight(self, algo=None, env_id=None, path=None):
         if path is None:
-            assert algo is not None and env is not None
-            path = f"./trained_model/{algo}/{env}/"
+            assert algo is not None and env_id is not None
+            path = f"./trained_model/{algo}/{env_id}/"
             assert os.path.isdir(path)
             onlyfiles = [
                 os.path.join(path, f)
                 for f in os.listdir(path)
-                if os.isfile(os.path.join(path, f))
+                if os.path.isfile(os.path.join(path, f))
             ]
             path = onlyfiles[0]
         else:

@@ -18,7 +18,7 @@ def get_rl_agent(env, config):
             tau=config.tau,
             batch_size=config.batch_size,
             use_ounoise=config.use_ounoise,
-            log_alpha_init=config.log_alpha_init
+            log_alpha_init=config.log_alpha_init,
         )
     else:
         raise TypeError(f"rl agent type : {config.algo} not supported")
