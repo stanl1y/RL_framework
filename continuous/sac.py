@@ -1,7 +1,8 @@
 from base_agent import base_agent
 from ounoise import OUNoise
-
+import copy
 import torch
+import os
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -26,7 +27,7 @@ class sac(base_agent):
         tau=0.01,
         batch_size=256,
         use_ounoise=False,
-        log_alpha_init=0
+        log_alpha_init=0,
     ):
 
         super().__init__(
@@ -48,7 +49,7 @@ class sac(base_agent):
             batch_size=batch_size,
         )
         self.target_entropy = -action_dim
-        self.log_alpha = torch.ones(1).to(device)*log_alpha_init
+        self.log_alpha = torch.ones(1).to(device) * log_alpha_init
         self.log_alpha.requires_grad = True
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=alpha_lr)
         self.ounoise = (
@@ -133,3 +134,80 @@ class sac(base_agent):
             "alpha_loss": alpha_loss,
             "alpha": self.alpha,
         }
+
+    def cache_weight(self):
+        self.best_actor = copy.deepcopy(self.actor)
+        self.best_actor_optimizer = copy.deepcopy(self.actor_optimizer)
+        self.best_critic = copy.deepcopy(self.critic)
+        self.best_critic_optimizer = copy.deepcopy(self.critic_optimizer)
+        self.best_log_alpha = copy.deepcopy(self.log_alpha)
+        self.best_log_alpha_optimizer = copy.deepcopy(self.log_alpha_optimizer)
+
+    def save_weight(self, best_testing_reward, algo, env_id, episodes):
+        path = f"./trained_model/{algo}/{env_id}/"
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        data = {
+            "episodes": episodes,
+            "actor_state_dict": self.best_actor.cpu().state_dict(),
+            "actor_optimizer_state_dict": self.best_actor_optimizer.state_dict(),
+            "log_alpha_state_dict": self.best_log_alpha.cpu(),
+            "log_alpha_optimizer_state_dict": self.best_log_alpha_optimizer.state_dict(),
+            "reward": best_testing_reward,
+        }
+
+        for idx, (model, optimizer) in enumerate(
+            zip(self.best_critic, self.best_critic_optimizer)
+        ):
+            data[f"critic_state_dict{idx}"] = model.cpu().state_dict()
+            data[f"critic_optimizer_state_dict{idx}"] = optimizer.state_dict()
+
+        file_path = os.path.join(
+            path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
+        )
+        torch.save(data, file_path)
+        try:
+            os.remove(self.previous_checkpoint_path)
+        except:
+            pass
+        self.previous_checkpoint_path = file_path
+
+    def load_weight(self, algo=None, env_id=None, path=None):
+        if path is None:
+            assert algo is not None and env_id is not None
+            path = f"./trained_model/{algo}/{env_id}/"
+            assert os.path.isdir(path)
+            onlyfiles = [
+                os.path.join(path, f)
+                for f in os.listdir(path)
+                if os.path.isfile(os.path.join(path, f))
+            ]
+            path = onlyfiles[-1]
+        else:
+            assert os.path.isfile(path)
+
+        checkpoint = torch.load(path)
+
+        self.actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.best_actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
+        self.best_actor_optimizer.load_state_dict(
+            checkpoint["actor_optimizer_state_dict"]
+        )
+        self.log_alpha=checkpoint["log_alpha_state_dict"]
+        self.log_alpha_optimizer.load_state_dict(
+            checkpoint["log_alpha_optimizer_state_dict"]
+        )
+
+        for idx in range(self.critic_num):
+            self.critic[idx].load_state_dict(checkpoint[f"critic_state_dict{idx}"])
+            self.critic_target[idx].load_state_dict(
+                checkpoint[f"critic_state_dict{idx}"]
+            )
+            self.best_critic[idx].load_state_dict(checkpoint[f"critic_state_dict{idx}"])
+            self.critic_optimizer[idx].load_state_dict(
+                checkpoint[f"critic_optimizer_state_dict{idx}"]
+            )
+            self.best_critic_optimizer[idx].load_state_dict(
+                checkpoint[f"critic_optimizer_state_dict{idx}"]
+            )

@@ -150,12 +150,16 @@ class base_agent:
             ):
                 data[f"critic_state_dict{idx}"] = model.state_dict()
                 data[f"critic_optimizer_state_dict{idx}"] = optimizer.state_dict()
-        torch.save(
-            data,
-            os.path.join(
-                path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
-            ),
+
+        file_path = os.path.join(
+            path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
         )
+        torch.save(data, file_path)
+        try:
+            os.remove(self.previous_checkpoint_path)
+        except:
+            pass
+        self.previous_checkpoint_path = file_path
 
     def load_weight(self, algo=None, env_id=None, path=None):
         if path is None:

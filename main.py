@@ -34,6 +34,7 @@ def get_config():
     )
     parser.add_argument("--expert_transition_num", type=int, help="number of expert data")
     parser.add_argument("--expert_episode_num", type=int, help="number of expert data")
+    parser.add_argument("--buffer_warmup_step", type=int, help="number of step of random walk in the initial of training")
 
     args = parser.parse_args()
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)

@@ -37,6 +37,8 @@ buffer_warmup:
   True
 buffer_warmup_step:
   2000
+save_weight_period:
+  50
 use_ounoise:
   False
 log_alpha_init:

@@ -47,18 +47,20 @@ class normal_replay_buffer:
         path = f"./saved_expert_transition/{env_id}/{algo}/"
         if not os.path.isdir(path):
             os.makedirs(path)
+        save_idx=min(self.storage_index, self.size)
+        print(save_idx)
         data = {
-            "states": self.states,
-            "actions": self.actions,
-            "rewards": self.rewards,
-            "next_states": self.next_states,
-            "dones": self.dones,
+            "states": self.states[:save_idx],
+            "actions": self.actions[:save_idx],
+            "rewards": self.rewards[:save_idx],
+            "next_states": self.next_states[:save_idx],
+            "dones": self.dones[:save_idx],
         }
         if based_on_transition_num:
             file_name=f"transition_num{expert_data_num}.pkl"
         else:
             file_name=f"episode_num{expert_data_num}.pkl"
-
+        print(os.path.join(path, file_name))
         with open(os.path.join(path, file_name), "wb") as handle:
             pickle.dump(data, handle)
 
