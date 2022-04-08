@@ -79,6 +79,7 @@ class base_agent:
 
         self.best_critic = copy.deepcopy(self.critic)
         self.best_critic_optimizer = copy.deepcopy(self.critic_optimizer)
+        self.previous_checkpoint_path = None
 
     def get_new_actor(self, policy_type):
         if policy_type == "stochastic":

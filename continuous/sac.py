@@ -144,9 +144,17 @@ class sac(base_agent):
         self.best_log_alpha_optimizer = copy.deepcopy(self.log_alpha_optimizer)
 
     def save_weight(self, best_testing_reward, algo, env_id, episodes):
-        path = f"./trained_model/{algo}/{env_id}/"
-        if not os.path.isdir(path):
-            os.makedirs(path)
+        dir_path = f"./trained_model/{algo}/{env_id}/"
+        if not os.path.isdir(dir_path):
+            os.makedirs(dir_path)
+
+        file_path = os.path.join(
+            dir_path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
+        )
+        
+        if file_path == self.previous_checkpoint_path:
+            return
+
         data = {
             "episodes": episodes,
             "actor_state_dict": self.best_actor.cpu().state_dict(),
@@ -162,9 +170,6 @@ class sac(base_agent):
             data[f"critic_state_dict{idx}"] = model.cpu().state_dict()
             data[f"critic_optimizer_state_dict{idx}"] = optimizer.state_dict()
 
-        file_path = os.path.join(
-            path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
-        )
         torch.save(data, file_path)
         try:
             os.remove(self.previous_checkpoint_path)
