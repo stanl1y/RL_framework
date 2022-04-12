@@ -4,8 +4,8 @@ from continuous import sac
 def get_rl_agent(env, config):
     if config.algo == "sac":
         return sac(
-            observation_dim=env.observation_space.shape[0],
-            action_dim=env.action_space.shape[0],
+            observation_dim=env.get_observation_dim(),
+            action_dim=env.get_action_dim(),
             action_lower=min(env.action_space.low),
             action_upper=max(env.action_space.high),
             hidden_dim=config.hidden_dim,

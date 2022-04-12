@@ -9,6 +9,7 @@ class off_policy_training_stage:
         self.algo = config.algo
         self.env_id = config.env
         self.save_weight_period = config.save_weight_period
+        self.continue_training=config.continue_training
         wandb.init(
             project="RL_Implementation",
             name=f"{self.algo}_{self.env_id}",
@@ -32,6 +33,8 @@ class off_policy_training_stage:
         self.train(agent, env, storage)
 
     def train(self, agent, env, storage):
+        if self.continue_training:
+            agent.load_weight(self.env_id)
         if self.buffer_warmup:
             state = env.reset()
             done = False

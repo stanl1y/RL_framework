@@ -1,5 +1,6 @@
 from base_agent import base_agent
 from ounoise import OUNoise
+import torch.nn as nn
 import copy
 import torch
 import os
@@ -49,9 +50,11 @@ class sac(base_agent):
             batch_size=batch_size,
         )
         self.target_entropy = -action_dim
-        self.log_alpha = torch.ones(1).to(device) * log_alpha_init
-        self.log_alpha.requires_grad = True
-        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=alpha_lr)
+        self.log_alpha = nn.Parameter(torch.ones(1).to(device) * log_alpha_init)
+        # self.log_alpha.requires_grad = True
+        self.alpha_lr = alpha_lr
+        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.alpha_lr)
+        self.best_log_alpha_optimizer = copy.deepcopy(self.log_alpha_optimizer)
         self.ounoise = (
             OUNoise(action_dimension=action_dim, scale=action_upper - action_lower)
             if use_ounoise
@@ -136,12 +139,17 @@ class sac(base_agent):
         }
 
     def cache_weight(self):
-        self.best_actor = copy.deepcopy(self.actor)
-        self.best_actor_optimizer = copy.deepcopy(self.actor_optimizer)
-        self.best_critic = copy.deepcopy(self.critic)
-        self.best_critic_optimizer = copy.deepcopy(self.critic_optimizer)
-        self.best_log_alpha = copy.deepcopy(self.log_alpha)
-        self.best_log_alpha_optimizer = copy.deepcopy(self.log_alpha_optimizer)
+        self.best_actor.load_state_dict(self.actor.state_dict())
+        self.best_actor_optimizer.load_state_dict(self.actor_optimizer.state_dict())
+        for idx in range(self.critic_num):
+            self.best_critic[idx].load_state_dict(self.critic[idx].state_dict())
+            self.best_critic_optimizer[idx].load_state_dict(
+                self.critic_optimizer[idx].state_dict()
+            )
+        self.best_log_alpha = self.log_alpha
+        self.best_log_alpha_optimizer.load_state_dict(
+            self.log_alpha_optimizer.state_dict()
+        )
 
     def save_weight(self, best_testing_reward, algo, env_id, episodes):
         dir_path = f"./trained_model/{algo}/{env_id}/"
@@ -151,7 +159,7 @@ class sac(base_agent):
         file_path = os.path.join(
             dir_path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
         )
-        
+
         if file_path == self.previous_checkpoint_path:
             return
 
@@ -177,10 +185,10 @@ class sac(base_agent):
             pass
         self.previous_checkpoint_path = file_path
 
-    def load_weight(self, algo=None, env_id=None, path=None):
+    def load_weight(self, env_id=None, path=None):
         if path is None:
-            assert algo is not None and env_id is not None
-            path = f"./trained_model/{algo}/{env_id}/"
+            assert env_id is not None
+            path = f"./trained_model/sac/{env_id}/"
             assert os.path.isdir(path)
             onlyfiles = [
                 os.path.join(path, f)
@@ -194,22 +202,32 @@ class sac(base_agent):
         checkpoint = torch.load(path)
 
         self.actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.actor = self.actor.to(device)
         self.best_actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.best_actor = self.best_actor.to(device)
         self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
         self.best_actor_optimizer.load_state_dict(
             checkpoint["actor_optimizer_state_dict"]
         )
-        self.log_alpha=checkpoint["log_alpha_state_dict"]
+
+        self.log_alpha = checkpoint["log_alpha_state_dict"]
+        self.log_alpha.requires_grad=False
+        self.log_alpha = self.log_alpha.to(device)
+        self.log_alpha.requires_grad=True
+        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.alpha_lr)
         self.log_alpha_optimizer.load_state_dict(
             checkpoint["log_alpha_optimizer_state_dict"]
         )
 
         for idx in range(self.critic_num):
             self.critic[idx].load_state_dict(checkpoint[f"critic_state_dict{idx}"])
+            self.critic[idx] = self.critic[idx].to(device)
             self.critic_target[idx].load_state_dict(
                 checkpoint[f"critic_state_dict{idx}"]
             )
+            self.critic_target[idx] = self.critic_target[idx].to(device)
             self.best_critic[idx].load_state_dict(checkpoint[f"critic_state_dict{idx}"])
+            self.best_critic[idx] = self.best_critic[idx].to(device)
             self.critic_optimizer[idx].load_state_dict(
                 checkpoint[f"critic_optimizer_state_dict{idx}"]
             )

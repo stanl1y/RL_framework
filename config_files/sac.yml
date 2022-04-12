@@ -1,6 +1,8 @@
 env:
   BipedalWalker-v3
   # MountainCarContinuous-v0
+wrapper_type:
+  basic
 hidden_dim:
   256
 gamma:
@@ -35,6 +37,8 @@ main_stage_type:
   off_policy
 buffer_warmup:
   True
+continue_training:
+  False
 buffer_warmup_step:
   2000
 save_weight_period:
@@ -43,3 +47,4 @@ use_ounoise:
   False
 log_alpha_init:
   !!float 0
+

@@ -7,8 +7,8 @@ def get_replay_buffer(env, config):
     if config.buffer_type == "normal":
         return normal_replay_buffer(
             size=config.buffer_size,
-            state_dim=env.observation_space.shape[0],
-            action_dim=env.action_space.shape[0],
+            state_dim=env.get_observation_dim(),
+            action_dim=env.get_action_dim(),
         )
     else:
         raise TypeError(f"replay buffer type : {config.buffer_type} not supported")
