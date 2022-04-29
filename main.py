@@ -22,7 +22,7 @@ def get_config():
     parser.add_argument(
         "--wrapper_type",
         type=str,
-        help="which RL algo",
+        help='basic for normal environment, gym robotic for training on robotic envs "directly", her is for training on robotic envs with hindsight experience replay',
     )
     parser.add_argument(
         "--env",
@@ -34,7 +34,7 @@ def get_config():
     parser.add_argument(
         "--main_stage_type",
         type=str,
-        help="type of main stage(ex. off_policy, collect_expert)",
+        help="type of main stage(ex. off_policy, her_off_policy, collect_expert)",
     )
     parser.add_argument("--batch_size", type=int, help="Batch size, default: 256")
     parser.add_argument("--hidden_dim", type=int, help="dimension of hidden layer 256")

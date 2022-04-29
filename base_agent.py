@@ -38,6 +38,8 @@ class base_agent:
         self.tau = tau
         self.batch_size = batch_size
         self.critic_criterion = nn.MSELoss()
+        self.action_lower = action_lower
+        self.action_upper = action_upper
         self.action_scale = (action_upper - action_lower) / 2
         self.action_bias = (action_upper + action_lower) / 2
 
@@ -110,9 +112,16 @@ class base_agent:
                 i.data = (1 - self.tau) * i.data + self.tau * j.data
 
         if self.critic_target is not None:
-            for idx in range(self.critic_num):
+            if self.critic_num > 1:
+                for idx in range(self.critic_num):
+                    for i, j in zip(
+                        self.critic_target[idx].parameters(),
+                        self.critic[idx].parameters(),
+                    ):
+                        i.data = (1 - self.tau) * i.data + self.tau * j.data
+            else:
                 for i, j in zip(
-                    self.critic_target[idx].parameters(), self.critic[idx].parameters()
+                    self.critic_target.parameters(), self.critic.parameters()
                 ):
                     i.data = (1 - self.tau) * i.data + self.tau * j.data
 

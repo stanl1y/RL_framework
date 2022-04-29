@@ -1,6 +1,6 @@
 env:
-  BipedalWalker-v3
-  # MountainCarContinuous-v0
+  # BipedalWalker-v3
+  MountainCarContinuous-v0
 wrapper_type:
   basic
 hidden_dim:
@@ -14,8 +14,6 @@ critic_optim:
 actor_lr:
   0.0003
 critic_lr:
-  0.0003
-alpha_lr:
   0.0003
 tau:
   0.005
@@ -41,7 +39,8 @@ buffer_warmup_step:
   2000
 save_weight_period:
   50
+policy_update_delay:
+  2
 use_ounoise:
-  False
-log_alpha_init:
-  !!float 0
+  True
+

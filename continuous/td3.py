@@ -4,6 +4,7 @@ import torch.nn as nn
 import copy
 import torch
 import os
+import numpy as np
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -11,7 +12,7 @@ else:
     device = torch.device("cpu")
 
 
-class sac(base_agent):
+class td3(base_agent):
     def __init__(
         self,
         observation_dim,
@@ -24,11 +25,10 @@ class sac(base_agent):
         critic_optim="adam",
         actor_lr=3e-4,
         critic_lr=3e-4,
-        alpha_lr=3e-4,
         tau=0.01,
         batch_size=256,
-        use_ounoise=False,
-        log_alpha_init=0,
+        use_ounoise=True,
+        policy_update_delay=2,
     ):
 
         super().__init__(
@@ -38,8 +38,8 @@ class sac(base_agent):
             action_upper=action_upper,
             critic_num=2,
             hidden_dim=hidden_dim,
-            policy_type="stochastic",
-            actor_target=False,
+            policy_type="deterministic",
+            actor_target=True,
             critic_target=True,
             gamma=gamma,
             actor_optim=actor_optim,
@@ -49,12 +49,8 @@ class sac(base_agent):
             tau=tau,
             batch_size=batch_size,
         )
-        self.target_entropy = -action_dim
-        self.log_alpha = nn.Parameter(torch.ones(1).to(device) * log_alpha_init)
-        # self.log_alpha.requires_grad = True
-        self.alpha_lr = alpha_lr
-        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.alpha_lr)
-        self.best_log_alpha_optimizer = copy.deepcopy(self.log_alpha_optimizer)
+        self.update_step = 0
+        self.policy_update_delay = policy_update_delay
         self.ounoise = (
             OUNoise(
                 action_dimension=action_dim,
@@ -65,33 +61,40 @@ class sac(base_agent):
             else None
         )
 
-    @property
-    def alpha(self):
-        return self.log_alpha.exp()
-
     def act(self, state, testing=False):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         with torch.no_grad():
-            action, log_prob, mu = self.actor.sample(state)
+            action = self.actor(state)
         if not testing:
             if self.ounoise is not None:
-                return action[0].cpu().numpy() + self.ounoise.noise()
+                action = action[0].cpu().numpy() + self.ounoise.noise()
             else:
-                return action[0].cpu().numpy()
+                action = action[0].cpu().numpy() + np.random.normal(
+                    self.action_bias, self.action_scale / 2, self.action_dim
+                )
+            return np.clip(action, self.action_lower, self.action_upper)
         else:
-            return mu[0].cpu().numpy()
+            return action[0].cpu().numpy()
 
     def update_critic(self, state, action, reward, next_state, done):
 
         """compute target value"""
         with torch.no_grad():
-            next_action, next_log_prob, next_mu = self.actor.sample(next_state)
+            next_action = self.actor_target(next_state)
+            next_action = next_action + torch.clip(
+                torch.normal(0, self.action_scale / 4, size=next_action.shape),
+                min=-self.action_scale / 2,
+                max=self.action_scale / 2,
+            ).to(device)
+            next_action = torch.clip(
+                next_action, min=self.action_lower, max=self.action_upper
+            )
             target_q_val = [
                 critic_target(next_state, next_action)
                 for critic_target in self.critic_target
             ]
             target_value = reward + self.gamma * (1 - done) * (
-                torch.min(target_q_val[0], target_q_val[1]) - self.alpha * next_log_prob
+                torch.min(target_q_val[0], target_q_val[1])
             )
 
         """compute loss and update"""
@@ -105,20 +108,13 @@ class sac(base_agent):
         return critic_loss
 
     def update_actor(self, state):
-        action_tilda, log_prob, mu = self.actor.sample(state)
-        q_val = [critic(state, action_tilda) for critic in self.critic]
-        entropy_loss = -self.alpha.detach() * log_prob
-        actor_loss = (-(torch.min(q_val[0], q_val[1]) + entropy_loss)).mean()
+        action_tilda = self.actor(state)
+        q_val = self.critic[0](state, action_tilda)
+        actor_loss = -q_val[0].mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
-
-        """update alpha"""
-        alpha_loss = (self.alpha * (-log_prob - self.target_entropy).detach()).mean()
-        self.log_alpha_optimizer.zero_grad()
-        alpha_loss.backward()
-        self.log_alpha_optimizer.step()
-        return actor_loss, alpha_loss
+        return actor_loss
 
     def update(self, storage):
 
@@ -132,14 +128,17 @@ class sac(base_agent):
 
         """update model"""
         critic_loss = self.update_critic(state, action, reward, next_state, done)
-        actor_loss, alpha_loss = self.update_actor(state)
-        self.soft_update_target()
+        if self.update_step % self.policy_update_delay == 0:
+            actor_loss = self.update_actor(state)
+            self.soft_update_target()
+            self.prev_actor_loss = actor_loss
+        else:
+            actor_loss = self.prev_actor_loss
+        self.update_step += 1
         return {
             "critic0_loss": critic_loss[0],
             "critic1_loss": critic_loss[1],
             "actor_loss": actor_loss,
-            "alpha_loss": alpha_loss,
-            "alpha": self.alpha,
         }
 
     def cache_weight(self):
@@ -150,10 +149,6 @@ class sac(base_agent):
             self.best_critic_optimizer[idx].load_state_dict(
                 self.critic_optimizer[idx].state_dict()
             )
-        self.best_log_alpha = self.log_alpha
-        self.best_log_alpha_optimizer.load_state_dict(
-            self.log_alpha_optimizer.state_dict()
-        )
 
     def save_weight(self, best_testing_reward, algo, env_id, episodes):
         dir_path = f"./trained_model/{algo}/{env_id}/"
@@ -171,8 +166,6 @@ class sac(base_agent):
             "episodes": episodes,
             "actor_state_dict": self.best_actor.cpu().state_dict(),
             "actor_optimizer_state_dict": self.best_actor_optimizer.state_dict(),
-            "log_alpha_state_dict": self.best_log_alpha.cpu(),
-            "log_alpha_optimizer_state_dict": self.best_log_alpha_optimizer.state_dict(),
             "reward": best_testing_reward,
         }
 
@@ -189,7 +182,7 @@ class sac(base_agent):
             pass
         self.previous_checkpoint_path = file_path
 
-    def load_weight(self, algo="sac", env_id=None, path=None):
+    def load_weight(self, algo="td3", env_id=None, path=None):
         if path is None:
             assert env_id is not None
             path = f"./trained_model/{algo}/{env_id}/"
@@ -209,18 +202,10 @@ class sac(base_agent):
         self.actor = self.actor.to(device)
         self.best_actor.load_state_dict(checkpoint["actor_state_dict"])
         self.best_actor = self.best_actor.to(device)
+        self.actor_target.load_state_dict(checkpoint["actor_state_dict"])
         self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
         self.best_actor_optimizer.load_state_dict(
             checkpoint["actor_optimizer_state_dict"]
-        )
-
-        self.log_alpha = checkpoint["log_alpha_state_dict"]
-        self.log_alpha.requires_grad = False
-        self.log_alpha = self.log_alpha.to(device)
-        self.log_alpha.requires_grad = True
-        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.alpha_lr)
-        self.log_alpha_optimizer.load_state_dict(
-            checkpoint["log_alpha_optimizer_state_dict"]
         )
 
         for idx in range(self.critic_num):
