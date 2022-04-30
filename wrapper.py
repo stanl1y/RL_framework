@@ -23,7 +23,7 @@ class GymRoboticWrapper(gym.Wrapper):
         )
 
     def get_observation_dim(self):
-        return self.env.observation_space[0]
+        return self.env.observation_space.shape[0]
 
     def get_action_dim(self):
         return self.env.action_space.shape[0]
