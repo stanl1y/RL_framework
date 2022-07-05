@@ -96,7 +96,7 @@ class her_off_policy_training_stage:
         self.env_id = config.env
         self.save_weight_period = config.save_weight_period
         self.continue_training = config.continue_training
-        self.test_env = get_env(self.env_id, wrapper_type="gym_robotic")
+        # self.test_env = get_env(self.env_id, wrapper_type="gym_robotic")
         wandb.init(
             project="RL_Implementation",
             name=f"{self.algo}_{self.env_id}_HER",
@@ -107,11 +107,19 @@ class her_off_policy_training_stage:
         total_reward = 0
         for i in range(3):
             state = env.reset()
+            state = np.append(
+                state["observation"],
+                state["desired_goal"],
+            )
             done = False
             while not done:
                 action = agent.act(state, testing=True)
                 next_state, reward, done, info = env.step(action)
                 total_reward += reward
+                next_state = np.append(
+                    next_state["observation"],
+                    next_state["desired_goal"],
+                )
                 state = next_state
         total_reward /= 3
         return total_reward
@@ -182,10 +190,10 @@ class her_off_policy_training_stage:
                 state = next_state
 
             # her part
-            pseudo_goals_idx = np.random.randint(len(episodic_next_state), size=int(np.ceil(len(episodic_next_state) / 10)))
-            for pseudo_goal_idx in pseudo_goals_idx:
-                pseudo_goal = episodic_next_state[pseudo_goal_idx]["achieved_goal"]
-                for idx in range(pseudo_goal_idx+1):
+            for idx in range(len(episodic_state)-1):
+                pseudo_goals_idx = np.random.randint(low=idx,high=len(episodic_next_state), size=4)
+                for pseudo_goal_idx in pseudo_goals_idx:
+                    pseudo_goal=episodic_next_state[pseudo_goal_idx]["achieved_goal"]
                     state = episodic_state[idx]
                     state = np.append(
                         state["observation"],
@@ -212,7 +220,7 @@ class her_off_policy_training_stage:
             )
 
             if i % 5 == 0:
-                testing_reward = self.test(agent, self.test_env)
+                testing_reward = self.test(agent, env)#self.test_env
                 if testing_reward > best_testing_reward:
                     agent.cache_weight()
                     best_testing_reward = testing_reward

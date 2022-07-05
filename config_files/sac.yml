@@ -45,3 +45,5 @@ use_ounoise:
   False
 log_alpha_init:
   !!float 0
+render:
+  False

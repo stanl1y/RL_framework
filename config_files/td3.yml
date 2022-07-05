@@ -43,4 +43,5 @@ policy_update_delay:
   2
 use_ounoise:
   True
-
+render:
+  False

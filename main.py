@@ -19,6 +19,7 @@ def get_config():
         hyper = yaml.safe_load(f)
         parser.set_defaults(**hyper)
 
+    parser.add_argument("--buffer_size", type=int, help="size of replay buffer")
     parser.add_argument(
         "--wrapper_type",
         type=str,
@@ -53,7 +54,9 @@ def get_config():
         type=int,
         help="number of step of random walk in the initial of training",
     )
-
+    parser.add_argument(
+        "--render", action="store_true", help="whether to render when testing"
+    )
     args = parser.parse_args()
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
 

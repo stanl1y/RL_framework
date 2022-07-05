@@ -41,4 +41,5 @@ save_weight_period:
   50
 use_ounoise:
   True
-
+render:
+  False
