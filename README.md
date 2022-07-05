@@ -6,7 +6,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/github_username/repo_name">
-    <img src="images/logo.svg" alt="Logo" width="400" height="400">
+    <img src="images/logo.svg" alt="Logo" width="800" height="800">
   </a>
 
 <h3 align="center">RL_Implementation</h3>
@@ -81,19 +81,19 @@ This is a RL framework that aims to improve the development speed of RL algorith
 ## Architecture explanation
 The code is divided into several modules, including `main stage`,`environment`, `RL algorithm`, `replay buffer`, `configuration`
 ### main stage
-<img src="images/main stage.svg" alt="Logo" width="200" height="200">
+<img src="images/main stage.svg" alt="Logo" width="400" height="400">
 
 This module describes what the code is going to do, for example : off-policy training, on-policy training, collect expert for imitation learning.
 ### environment
-<img src="images/env.svg" alt="Logo" width="200" height="200">
+<img src="images/env.svg" alt="Logo" width="400" height="400">
 
 This module is about all kind of manipulation of the RL environemnt like state transformation, wrapping,...
 ### RL algorithm
-<img src="images/rl algo.svg" alt="Logo" width="200" height="200">
+<img src="images/rl algo.svg" alt="Logo" width="400" height="400">
 
 All kinds of RL agent are going to be implemented here, imcluding DQN, DDPG, TD3, SAC, PPO,...
 ### replay buffer
-<img src="images/replay buffer.svg" alt="Logo" width="800" height="800">
+<img src="images/replay buffer.svg" alt="Logo" width="400" height="400">
 
 Implements replay buffer like normal replay buffer of prioritized replay buffer.
 <!-- ### configuration
@@ -134,7 +134,7 @@ This is an example of how to list things you need to use the software and how to
 
 <!-- USAGE EXAMPLES -->
 ## Usage
-<img src="images/config get.svg" alt="Logo" width="200" height="200">
+<img src="images/config get.svg" alt="Logo" width="600" height="600">
 use `get_rl_agent`, `get_env`, `get_replay_buffer`, `get_main_stage` function as the interface to access the modules.
 
 ```python:
@@ -151,7 +151,7 @@ then you can execute your task with the following code
 main_fn.start(agent, env, storage)
 ```
 just like all the blocks are assembled
-<img src="images/combine.svg" alt="Logo" width="200" height="200">
+<img src="images/combine.svg" alt="Logo" width="400" height="400">
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
