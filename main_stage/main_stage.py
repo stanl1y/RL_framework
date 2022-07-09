@@ -1,5 +1,5 @@
-from off_policy import *
-from collect_expert import collect_expert
+from .off_policy import *
+from .collect_expert import collect_expert
 
 
 def get_main_stage(config):

@@ -1,7 +1,7 @@
 import argparse
 import yaml
 from rl_algo import get_rl_agent
-from envs import get_env
+from environment import get_env
 from replay_buffer import get_replay_buffer
 from main_stage import get_main_stage
 

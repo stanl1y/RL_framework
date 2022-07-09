@@ -1,5 +1,5 @@
 import gym
-from wrapper import *
+from .wrapper import *
 def get_env(env_name,wrapper_type):
     if env_name in ["highway-v0","merge-v0","roundabout-v0","parking-v0","intersection-v0","racetrack-v0"]:
         '''

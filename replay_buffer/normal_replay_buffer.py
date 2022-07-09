@@ -2,18 +2,6 @@ import numpy as np
 import os
 import pickle
 
-
-def get_replay_buffer(env, config):
-    if config.buffer_type == "normal":
-        return normal_replay_buffer(
-            size=config.buffer_size,
-            state_dim=env.get_observation_dim(),
-            action_dim=env.get_action_dim(),
-        )
-    else:
-        raise TypeError(f"replay buffer type : {config.buffer_type} not supported")
-
-
 class normal_replay_buffer:
     def __init__(self, size, state_dim, action_dim):
         self.size = size

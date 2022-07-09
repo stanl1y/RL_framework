@@ -1,5 +1,5 @@
-from base_agent import base_agent
-from ounoise import OUNoise
+from .base_agent import base_agent
+from exploration.ounoise import OUNoise
 import torch.nn as nn
 import copy
 import torch
