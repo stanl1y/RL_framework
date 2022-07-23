@@ -47,7 +47,16 @@ class base_dqn:
         self.q_network_target = copy.deepcopy(self.q_network)
 
         self.previous_checkpoint_path = None
-        self.update_target = self.soft_update_target if soft_update_target else self.hard_update_target
+        self.update_target = (
+            self.soft_update_target if soft_update_target else self.hard_update_target
+        )
+        self.train()
+
+    def train(self):
+        self.q_network.train()
+
+    def eval(self):
+        self.q_network.eval()
 
     def get_new_network(self, network_type):
         if network_type == "vanilla":
@@ -140,6 +149,7 @@ class VanillaDQN(nn.Module):
         x = self.fc4(x)
         return x
 
+
 class DuelingDQN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super().__init__()
@@ -156,3 +166,61 @@ class DuelingDQN(nn.Module):
         x_v = self.fc4_value(x)
         x_a = self.fc4_advantage(x)
         return x_v + (x_a - torch.mean(x_a, axis=1, keepdim=True))
+
+
+class noisy_linear(nn.Module):
+    def __init__(self, input_dim, output_dim, std_init=0.4):
+        super(noisy_linear, self).__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.std_init = std_init
+
+        self.weight_mu = nn.Parameter(
+            torch.FloatTensor(self.output_dim, self.input_dim)
+        )
+        self.weight_sigma = nn.Parameter(
+            torch.FloatTensor(self.output_dim, self.input_dim)
+        )
+        self.register_buffer(
+            "weight_epsilon", torch.FloatTensor(self.output_dim, self.input_dim)
+        )
+
+        self.bias_mu = nn.Parameter(torch.FloatTensor(self.output_dim))
+        self.bias_sigma = nn.Parameter(torch.FloatTensor(self.output_dim))
+        self.register_buffer("bias_epsilon", torch.FloatTensor(self.output_dim))
+
+        self.reset_parameters()
+        self.reset_noise()
+
+    def forward(self, x):
+        if self.training:
+            weight = self.weight_mu + self.weight_sigma.mul(self.weight_epsilon)
+            bias = self.bias_mu + self.bias_sigma.mul(self.bias_epsilon)
+        else:
+            weight = self.weight_mu
+            bias = self.bias_mu
+
+        return F.linear(x, weight, bias)
+
+    def reset_parameters(self):
+        mu_range = 1 / math.sqrt(self.weight_mu.size(1))
+
+        self.weight_mu.data.uniform_(-mu_range, mu_range)
+        self.weight_sigma.data.fill_(
+            self.std_init / math.sqrt(self.weight_sigma.size(1))
+        )
+
+        self.bias_mu.data.uniform_(-mu_range, mu_range)
+        self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.bias_sigma.size(0)))
+
+    def reset_noise(self):
+        epsilon_in = self._scale_noise(self.in_features)
+        epsilon_out = self._scale_noise(self.out_features)
+        self.weight_epsilon.copy_(epsilon_out.outer(epsilon_in))
+        self.bias_epsilon.copy_(self._scale_noise(self.out_features))
+
+    def _scale_noise(self, size):
+        x = torch.randn(size)
+        x = x.sign().mul(x.abs().sqrt())
+        return x
