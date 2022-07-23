@@ -146,7 +146,7 @@ class DuelingDQN(nn.Module):
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc4_value = nn.Linear(hidden_dim, output_dim)
+        self.fc4_value = nn.Linear(hidden_dim, 1)
         self.fc4_advantage = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
@@ -155,4 +155,4 @@ class DuelingDQN(nn.Module):
         x = F.relu(self.fc3(x))
         x_v = self.fc4_value(x)
         x_a = self.fc4_advantage(x)
-        return x_v - torch.mean(x_a, axis=1, keepdim=True)
+        return x_v + (x_a - torch.mean(x_a, axis=1, keepdim=True))

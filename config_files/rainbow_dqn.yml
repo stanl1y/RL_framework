@@ -12,11 +12,11 @@ optim:
 #rainbow argument
 #------
 network_type: #or dueling
-  vanilla
+  dueling
 noisy_network:
   False
 double_dqn:
-  False
+  True
 buffer_type:
   normal
 td_length:
