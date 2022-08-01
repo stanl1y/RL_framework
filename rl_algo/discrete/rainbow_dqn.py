@@ -49,7 +49,7 @@ class rainbow_dqn(base_dqn):
 
     def act(self, state, testing=False):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
-        if np.random.rand() < self.epsilon and not testing:
+        if np.random.rand() < self.epsilon and not testing and not self.noisy_network:
             action = np.random.randint(0, self.action_num)
         else:
             action = self.q_network(state).cpu().detach().numpy()
@@ -57,6 +57,10 @@ class rainbow_dqn(base_dqn):
         return action
 
     def update_dqn(self, state, action, reward, next_state, done):
+        """update noisy network noise"""
+        if self.noisy_network:
+            self.q_network.reset_noise()
+            self.q_network_target.reset_noise()
 
         """compute target value"""
         with torch.no_grad():

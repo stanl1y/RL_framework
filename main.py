@@ -57,6 +57,9 @@ def get_config():
     parser.add_argument(
         "--render", action="store_true", help="whether to render when testing"
     )
+    parser.add_argument(
+        "--noisy_network", action="store_true", help="whether to render when testing"
+    )
     args = parser.parse_args()
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
 

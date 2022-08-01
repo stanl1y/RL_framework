@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import copy
+import math
 import os
 
 if torch.cuda.is_available():
@@ -32,7 +33,7 @@ class base_dqn:
         self.tau = tau
         self.batch_size = batch_size
         self.criterion = nn.MSELoss()
-
+        self.noisy_network = noisy_network
         """actor"""
         self.q_network = self.get_new_network(network_type)  # vanilla, dueling
 
@@ -54,9 +55,11 @@ class base_dqn:
 
     def train(self):
         self.q_network.train()
+        self.q_network_target.train()
 
     def eval(self):
         self.q_network.eval()
+        self.q_network_target.eval()
 
     def get_new_network(self, network_type):
         if network_type == "vanilla":
@@ -64,12 +67,14 @@ class base_dqn:
                 self.observation_dim,
                 self.hidden_dim,
                 self.action_num,
+                self.noisy_network,
             ).to(device)
         else:
             return DuelingDQN(
                 self.observation_dim,
                 self.hidden_dim,
                 self.action_num,
+                self.noisy_network,
             ).to(device)
 
     def soft_update_target(self):
@@ -135,12 +140,17 @@ class base_dqn:
 
 
 class VanillaDQN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_dim, output_dim, noisy_network=False):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc4 = nn.Linear(hidden_dim, output_dim)
+        self.noisy_network = noisy_network
+        if self.noisy_network:
+            linear_layer = noisy_linear
+        else:
+            linear_layer = nn.Linear
+        self.fc1 = linear_layer(input_dim, hidden_dim)
+        self.fc2 = linear_layer(hidden_dim, hidden_dim)
+        self.fc3 = linear_layer(hidden_dim, hidden_dim)
+        self.fc4 = linear_layer(hidden_dim, output_dim)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -149,15 +159,27 @@ class VanillaDQN(nn.Module):
         x = self.fc4(x)
         return x
 
+    def reset_noise(self):
+        if self.noisy_network:
+            self.fc1.reset_noise()
+            self.fc2.reset_noise()
+            self.fc3.reset_noise()
+            self.fc4.reset_noise()
+
 
 class DuelingDQN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_dim, output_dim, noisy_network=False):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc4_value = nn.Linear(hidden_dim, 1)
-        self.fc4_advantage = nn.Linear(hidden_dim, output_dim)
+        self.noisy_network = noisy_network
+        if self.noisy_network:
+            linear_layer = noisy_linear
+        else:
+            linear_layer = nn.Linear
+        self.fc1 = linear_layer(input_dim, hidden_dim)
+        self.fc2 = linear_layer(hidden_dim, hidden_dim)
+        self.fc3 = linear_layer(hidden_dim, hidden_dim)
+        self.fc4_value = linear_layer(hidden_dim, 1)
+        self.fc4_advantage = linear_layer(hidden_dim, output_dim)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -166,6 +188,14 @@ class DuelingDQN(nn.Module):
         x_v = self.fc4_value(x)
         x_a = self.fc4_advantage(x)
         return x_v + (x_a - torch.mean(x_a, axis=1, keepdim=True))
+
+    def reset_noise(self):
+        if self.noisy_network:
+            self.fc1.reset_noise()
+            self.fc2.reset_noise()
+            self.fc3.reset_noise()
+            self.fc4_value.reset_noise()
+            self.fc4_advantage.reset_noise()
 
 
 class noisy_linear(nn.Module):
@@ -215,10 +245,10 @@ class noisy_linear(nn.Module):
         self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.bias_sigma.size(0)))
 
     def reset_noise(self):
-        epsilon_in = self._scale_noise(self.in_features)
-        epsilon_out = self._scale_noise(self.out_features)
+        epsilon_in = self._scale_noise(self.input_dim)
+        epsilon_out = self._scale_noise(self.output_dim)
         self.weight_epsilon.copy_(epsilon_out.outer(epsilon_in))
-        self.bias_epsilon.copy_(self._scale_noise(self.out_features))
+        self.bias_epsilon.copy_(self._scale_noise(self.output_dim))
 
     def _scale_noise(self, size):
         x = torch.randn(size)
