@@ -40,3 +40,11 @@ class HERWrapper(BasicWrapper):
             observation_space["desired_goal"].shape[0]
             + observation_space["observation"].shape[0]
         )
+
+    def get_state_dim(self):
+        observation_space = self.env.observation_space
+        return observation_space["observation"].shape[0]
+
+    def get_goal_dim(self):
+        observation_space = self.env.observation_space
+        return observation_space["desired_goal"].shape[0]
