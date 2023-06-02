@@ -40,18 +40,18 @@ class rainbow_dqn(base_dqn):
             optim=optim,
             lr=lr,
             tau=tau,
+            epsilon=epsilon,
+            epsilon_decay=epsilon_decay,
+            epsilon_min=epsilon_min,
             batch_size=batch_size,
         )
         self.double_dqn = double_dqn
-        self.epsilon = epsilon
-        self.epsilon_decay = epsilon_decay
-        self.epsilon_min = epsilon_min
 
     def act(self, state, testing=False):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         if np.random.rand() < self.epsilon and not testing and not self.noisy_network:
             action = np.random.randint(0, self.action_num)
-        else:
+        else:  # acting greedly
             action = self.q_network(state).cpu().detach().numpy()
             action = np.argmax(action[0])
         return action
@@ -73,8 +73,8 @@ class rainbow_dqn(base_dqn):
             target_q_val = reward + (1 - done) * self.gamma * target_q_val
 
         """compute loss and update"""
-        pred=self.q_network(state)
-        pred=pred.gather(1,action)
+        pred = self.q_network(state)
+        pred = pred.gather(1, action)
         loss = self.criterion(pred, target_q_val)
 
         self.optimizer.zero_grad()
@@ -87,7 +87,9 @@ class rainbow_dqn(base_dqn):
         """sample data"""
         state, action, reward, next_state, done = storage.sample(self.batch_size)
         state = torch.FloatTensor(state).to(device)
-        action = torch.tensor(action,dtype=torch.int64).to(device)#keep action int type
+        action = torch.tensor(action, dtype=torch.int64).to(
+            device
+        )  # keep action int type
         reward = torch.FloatTensor(reward).to(device)
         next_state = torch.FloatTensor(next_state).to(device)
         done = torch.FloatTensor(done).to(device)
@@ -152,6 +154,5 @@ class rainbow_dqn(base_dqn):
         self.best_q_network.load_state_dict(checkpoint["dqn_state_dict"])
         self.best_q_network = self.best_q_network.to(device)
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.best_optimizer.load_state_dict(
-            checkpoint["optimizer_state_dict"]
-        )
+        self.best_optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        print("loaded weight from", path)

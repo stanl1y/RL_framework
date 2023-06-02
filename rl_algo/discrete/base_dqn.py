@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 import copy
 import math
 import os
@@ -24,6 +25,9 @@ class base_dqn:
         optim="adam",
         lr=3e-4,
         tau=0.01,
+        epsilon=0.3,
+        epsilon_decay=0.99,
+        epsilon_min=0.01,
         batch_size=256,
     ):
         self.observation_dim = observation_dim
@@ -31,6 +35,9 @@ class base_dqn:
         self.hidden_dim = hidden_dim
         self.gamma = gamma
         self.tau = tau
+        self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
+        self.epsilon_min = epsilon_min
         self.batch_size = batch_size
         self.criterion = nn.MSELoss()
         self.noisy_network = noisy_network
@@ -83,6 +90,9 @@ class base_dqn:
         ):
             i.data = (1 - self.tau) * i.data + self.tau * j.data
 
+    def update_epsilon(self):
+        self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
+
     def hard_update_target(self):
         self.q_network_target.load_state_dict(self.q_network.state_dict())
 
@@ -131,6 +141,7 @@ class base_dqn:
         self.best_q_network.load_state_dict(checkpoint["dqn_state_dict"])
         self.optimizer.load_state_dict(checkpoint["dqn_optimizer_state_dict"])
         self.best_optimizer.load_state_dict(checkpoint["dqn_optimizer_state_dict"])
+        print("loaded weight from", path)
 
     def act(self):
         raise NotImplementedError
@@ -225,8 +236,11 @@ class noisy_linear(nn.Module):
 
     def forward(self, x):
         if self.training:
-            weight = self.weight_mu + self.weight_sigma.mul(self.weight_epsilon)
-            bias = self.bias_mu + self.bias_sigma.mul(self.bias_epsilon)
+            with torch.no_grad():
+                weight_noise = self.weight_sigma.mul(self.weight_epsilon)
+                bias_noise = self.bias_sigma.mul(self.bias_epsilon)
+            weight = self.weight_mu + weight_noise
+            bias = self.bias_mu + bias_noise
         else:
             weight = self.weight_mu
             bias = self.bias_mu
