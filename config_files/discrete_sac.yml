@@ -1,21 +1,23 @@
 env:
-  # BipedalWalker-v3
-  MountainCarContinuous-v0
+  LunarLander-v2
 algo:
-  td3
+  discrete_sac
 wrapper_type:
   basic
 hidden_dim:
   256
 gamma:
   0.99
-actor_optim:
+optim:
   adam
-critic_optim:
-  adam
-actor_lr:
-  0.0003
-critic_lr:
+
+buffer_type:
+  normal
+td_length:
+  1
+soft_update_target:
+  True
+lr:
   0.0003
 tau:
   0.005
@@ -29,8 +31,6 @@ batch_size:
   256
 buffer_size:
   1000000
-buffer_type:
-  normal
 main_stage_type:
   off_policy
 buffer_warmup:
@@ -41,11 +41,5 @@ buffer_warmup_step:
   2000
 save_weight_period:
   50
-delete_prev_weight:
-  False
-policy_update_delay:
-  2
-use_ounoise:
-  True
 render:
   False

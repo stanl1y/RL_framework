@@ -1,6 +1,8 @@
 env:
   # BipedalWalker-v3
   MountainCarContinuous-v0
+algo:
+  rainbow_dqn
 wrapper_type:
   basic
 hidden_dim:
@@ -14,7 +16,7 @@ optim:
 network_type: #or dueling
   dueling
 noisy_network:
-  False
+  True
 double_dqn:
   True
 buffer_type:

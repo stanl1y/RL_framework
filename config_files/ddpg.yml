@@ -1,6 +1,8 @@
 env:
   # BipedalWalker-v3
   MountainCarContinuous-v0
+algo:
+  ddpg
 wrapper_type:
   basic
 hidden_dim:
@@ -39,6 +41,8 @@ buffer_warmup_step:
   2000
 save_weight_period:
   50
+delete_prev_weight:
+  False
 use_ounoise:
   True
 render:
