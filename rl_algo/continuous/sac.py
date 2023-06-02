@@ -51,7 +51,7 @@ class sac(base_agent):
         )
         self.target_entropy = -action_dim
         self.log_alpha = nn.Parameter(torch.ones(1).to(device) * log_alpha_init)
-        # self.log_alpha.requires_grad = True
+        self.log_alpha.requires_grad = True
         self.alpha_lr = alpha_lr
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.alpha_lr)
         self.best_log_alpha_optimizer = copy.deepcopy(self.log_alpha_optimizer)
@@ -102,11 +102,14 @@ class sac(base_agent):
             self.critic_optimizer[i].zero_grad()
             critic_loss[i].backward()
             self.critic_optimizer[i].step()
-        return critic_loss
+        return {
+            "critic0_loss": critic_loss[0],
+            "critic1_loss": critic_loss[1],
+        }
 
     def update_actor(self, state):
-        action_tilda, log_prob, mu = self.actor.sample(state)
-        q_val = [critic(state, action_tilda) for critic in self.critic]
+        action, log_prob, mu = self.actor.sample(state)
+        q_val = [critic(state, action) for critic in self.critic]
         entropy_loss = -self.alpha.detach() * log_prob
         actor_loss = (-(torch.min(q_val[0], q_val[1]) + entropy_loss)).mean()
         self.actor_optimizer.zero_grad()
@@ -118,29 +121,36 @@ class sac(base_agent):
         self.log_alpha_optimizer.zero_grad()
         alpha_loss.backward()
         self.log_alpha_optimizer.step()
-        return actor_loss, alpha_loss
+        return {
+            "actor_loss": actor_loss,
+            "alpha_loss": alpha_loss,
+            "alpha": self.alpha,
+            "entropy_loss": entropy_loss.mean(),
+            "log_prob": log_prob.mean(),
+        }
 
     def update(self, storage):
 
         """sample data"""
         state, action, reward, next_state, done = storage.sample(self.batch_size)
-        state = torch.FloatTensor(state).to(device)
-        action = torch.FloatTensor(action).to(device)
-        reward = torch.FloatTensor(reward).to(device)
-        next_state = torch.FloatTensor(next_state).to(device)
-        done = torch.FloatTensor(done).to(device)
+        if not storage.to_tensor:
+            state = torch.FloatTensor(state)
+            action = torch.FloatTensor(action)
+            reward = torch.FloatTensor(reward)
+            next_state = torch.FloatTensor(next_state)
+            done = torch.FloatTensor(done)
+        state = state.to(device)
+        action = action.to(device)
+        reward = reward.to(device)
+        next_state = next_state.to(device)
+        done = done.to(device)
 
         """update model"""
         critic_loss = self.update_critic(state, action, reward, next_state, done)
-        actor_loss, alpha_loss = self.update_actor(state)
+        actor_loss = self.update_actor(state)
         self.soft_update_target()
-        return {
-            "critic0_loss": critic_loss[0],
-            "critic1_loss": critic_loss[1],
-            "actor_loss": actor_loss,
-            "alpha_loss": alpha_loss,
-            "alpha": self.alpha,
-        }
+        return {**critic_loss, **actor_loss}
+
 
     def cache_weight(self):
         self.best_actor.load_state_dict(self.actor.state_dict())
@@ -155,13 +165,22 @@ class sac(base_agent):
             self.log_alpha_optimizer.state_dict()
         )
 
-    def save_weight(self, best_testing_reward, algo, env_id, episodes):
+    def save_weight(
+        self,
+        best_testing_reward,
+        algo,
+        env_id,
+        episodes,
+        log_name="",
+        delete_prev_weight=True,
+    ):
         dir_path = f"./trained_model/{algo}/{env_id}/"
         if not os.path.isdir(dir_path):
             os.makedirs(dir_path)
 
         file_path = os.path.join(
-            dir_path, f"episode{episodes}_reward{round(best_testing_reward,3)}.pt"
+            dir_path,
+            f"episode{episodes}_reward{round(best_testing_reward,3)}{log_name}.pt",
         )
 
         if file_path == self.previous_checkpoint_path:
@@ -183,11 +202,12 @@ class sac(base_agent):
             data[f"critic_optimizer_state_dict{idx}"] = optimizer.state_dict()
 
         torch.save(data, file_path)
-        try:
-            os.remove(self.previous_checkpoint_path)
-        except:
-            pass
-        self.previous_checkpoint_path = file_path
+        if delete_prev_weight:
+            try:
+                os.remove(self.previous_checkpoint_path)
+            except:
+                pass
+            self.previous_checkpoint_path = file_path
 
     def load_weight(self, algo="sac", env_id=None, path=None):
         if path is None:

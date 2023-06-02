@@ -105,16 +105,19 @@ class td3(base_agent):
             self.critic_optimizer[i].zero_grad()
             critic_loss[i].backward()
             self.critic_optimizer[i].step()
-        return critic_loss
+        return {
+            "critic0_loss": critic_loss[0],
+            "critic1_loss": critic_loss[1],
+        }
 
     def update_actor(self, state):
-        action_tilda = self.actor(state)
-        q_val = self.critic[0](state, action_tilda)
+        action = self.actor(state)
+        q_val = self.critic[0](state, action)
         actor_loss = -q_val[0].mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
-        return actor_loss
+        return {"actor_loss": actor_loss}
 
     def update(self, storage):
 
@@ -135,10 +138,7 @@ class td3(base_agent):
         else:
             actor_loss = self.prev_actor_loss
         self.update_step += 1
-        return {
-            "critic0_loss": critic_loss[0],
-            "critic1_loss": critic_loss[1],
-            "actor_loss": actor_loss,
+        return {**critic_loss, **actor_loss}
         }
 
     def cache_weight(self):
@@ -150,7 +150,7 @@ class td3(base_agent):
                 self.critic_optimizer[idx].state_dict()
             )
 
-    def save_weight(self, best_testing_reward, algo, env_id, episodes):
+    def save_weight(self, best_testing_reward, algo, env_id, episodes, delete_prev_weight=True):
         dir_path = f"./trained_model/{algo}/{env_id}/"
         if not os.path.isdir(dir_path):
             os.makedirs(dir_path)
@@ -176,10 +176,11 @@ class td3(base_agent):
             data[f"critic_optimizer_state_dict{idx}"] = optimizer.state_dict()
 
         torch.save(data, file_path)
-        try:
-            os.remove(self.previous_checkpoint_path)
-        except:
-            pass
+        if delete_prev_weight and self.previous_checkpoint_path is not None:
+            try:
+                os.remove(self.previous_checkpoint_path)
+            except:
+                pass
         self.previous_checkpoint_path = file_path
 
     def load_weight(self, algo="td3", env_id=None, path=None):
