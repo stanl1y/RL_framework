@@ -9,13 +9,13 @@ from main_stage import get_main_stage
 def get_config():
     parser = argparse.ArgumentParser(description="RL")
     parser.add_argument(
-        "--algo",
+        "--main_task",
         type=str,
         default="sac",
         help="which RL algo",
     )
     given_configs, remaining = parser.parse_known_args()
-    with open(f"config_files/{given_configs.algo}.yml", "r") as f:
+    with open(f"config_files/{given_configs.main_task}.yml", "r") as f:
         hyper = yaml.safe_load(f)
         parser.set_defaults(**hyper)
 
@@ -46,7 +46,24 @@ def get_config():
         "--continue_training", action="store_true", help="use ou noise or not"
     )
     parser.add_argument(
+        "--ood", action="store_true", help="Out of distribution evaluation"
+    )
+    parser.add_argument(
+        "--perturb_from_mid", action="store_true", default=False, help="When eval in ood mode, perturb from mid"
+    )
+    parser.add_argument(
+        "--perturb_with_repeated_action", action="store_true", default=False, help="Perturb agent with repeated action instead of random action"
+    )
+    parser.add_argument(
+        "--perturb_step_num", type=int, default=10, help="number of perturb step"
+    )
+    parser.add_argument(
         "--expert_transition_num", type=int, help="number of expert data"
+    )
+    parser.add_argument(
+        "--save_env_states",
+        action="store_true",
+        help="store the env state for 'set_state' or not",
     )
     parser.add_argument("--expert_episode_num", type=int, help="number of expert data")
     parser.add_argument(
@@ -59,6 +76,21 @@ def get_config():
     )
     parser.add_argument(
         "--noisy_network", action="store_true", help="whether to render when testing"
+    )
+    parser.add_argument(
+        "--log_name",
+        type=str,
+        help="nane of log file",
+    )
+    parser.add_argument(
+        "--weight_path",
+        type=str,
+        help="path of trained model weight",
+    )
+    parser.add_argument(
+        "--buffer_type",
+        type=str,
+        help="what kind of replay buffer",
     )
     args = parser.parse_args()
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
