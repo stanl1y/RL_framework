@@ -56,7 +56,6 @@ class normal_replay_buffer:
         return_idx=False,
         return_expert_env_states=False,
         exclude_tail_num=0,
-        only_last_1m=True,
     ):
         if expert:
             if batch_size == -1:
@@ -79,14 +78,9 @@ class normal_replay_buffer:
             if return_idx:
                 tmp = tmp + (indices,)
         else:
-            if only_last_1m and self.size > 1000000:
-                indices = np.random.randint(
-                    max(0, self.storage_index - 1000000), self.storage_index, size=batch_size
-                )
-            else:
-                indices = np.random.randint(
-                    min(self.storage_index, self.size), size=batch_size
-                )
+            indices = np.random.randint(
+                min(self.storage_index, self.size), size=batch_size
+            )
             tmp = (
                 self.states[indices],
                 self.actions[indices],
