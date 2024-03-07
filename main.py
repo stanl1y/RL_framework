@@ -9,13 +9,13 @@ from main_stage import get_main_stage
 def get_config():
     parser = argparse.ArgumentParser(description="RL")
     parser.add_argument(
-        "--main_task",
+        "--main_algo",
         type=str,
         default="sac",
-        help="which RL algo",
+        help="Which main algorithm to use (ddpg, sac, td3,...), this determines which config file to use",
     )
     given_configs, remaining = parser.parse_known_args()
-    with open(f"config_files/{given_configs.main_task}.yml", "r") as f:
+    with open(f"config_files/{given_configs.main_algo}.yml", "r") as f:
         hyper = yaml.safe_load(f)
         parser.set_defaults(**hyper)
 
