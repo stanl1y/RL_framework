@@ -44,6 +44,7 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
+    <li><a href="#example">Example</a></li>
   </ol>
 </details>
 
@@ -138,8 +139,16 @@ There are some default configurations in the `config_files` folder, you can use 
 <img src="images/combine.svg" alt="Logo" width="400" height="400">
 <p align="right">(<a href="#top">back to top</a>)</p>
 
+## Example
+Example of training a DDPG agent on the parking-v0 environment with HER off-policy algorithm and OUNoise exploration strategy and a replay buffer size of 100000
+```shell
+python3 main.py --main_algo ddpg --wrapper_type her --main_stage_type her_off_policy --env parking-v0 --episodes 10000 --use_ounoise --buffer_size 100000
+```
 
-
+Example of training a discrete SAC agent on the CartPole-v1 environment with 300 episodes
+```shell
+python3 main.py --main_algo discrete_sac --env CartPole-v1 --episodes 300 
+```
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [contributors-shield]: https://img.shields.io/github/contributors/github_username/repo_name.svg?style=for-the-badge
