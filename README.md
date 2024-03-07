@@ -9,10 +9,10 @@
     <img src="images/logo.svg" alt="Logo" width="800" height="800">
   </a>
 
-<h3 align="center">RL_Implementation</h3>
+<h3 align="center">RL Framework</h3>
 
   <p align="center">
-    This is a project that implements some rl algorithm.
+    This is a project that implements some Reinforcement Learning algorithm.
     <!-- <br />
     <a href="https://github.com/github_username/repo_name"><strong>Explore the docs »</strong></a>
     <br />
@@ -33,23 +33,17 @@
   <ol>
     <li>
       <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
     </li>
     <li>
-      <a href="#getting-started">Getting Started</a>
+      <a href="#architecture-explanation">Architecture Explanation</a>
       <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
+        <li><a href="#main-stage">Main Stage</a></li>
+        <li><a href="#environment">Environment</a></li>
+        <li><a href="#rl-algorithm">RL Algorithm</a></li>
+        <li><a href="#replay-buffer">Replay Buffer</a></li>
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
   </ol>
 </details>
 
@@ -59,43 +53,30 @@
 ## About The Project
 
 <!-- [![Product Name Screen Shot][product-screenshot]](https://example.com) -->
-This is a RL framework that aims to improve the development speed of RL algorithms. Each component of a RL algorithm is seperated clearly by different module so as to achive high maintainability and flexibility.
+This is a RL framework that aims to improve the development speed of RL algorithms. Each component of a RL algorithm is seperated clearly by different module so as to achive high maintainability and flexibility. This project is not developed based on stable baseline or openai spinning up (some of the hyper-parameter or model implementation are inspired by them) so that it can be more flexible and easy to understand. The main goal of this project is to provide a clear and easy-to-understand codebase for RL researchers and developers to easily develop and test their own algorithms instead of being stuck in the complex or delicate codebase that is hard to trace and modify. 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
 
-<!-- ### Built With
-
-* [Next.js](https://nextjs.org/)
-* [React.js](https://reactjs.org/)
-* [Vue.js](https://vuejs.org/)
-* [Angular](https://angular.io/)
-* [Svelte](https://svelte.dev/)
-* [Laravel](https://laravel.com)
-* [Bootstrap](https://getbootstrap.com)
-* [JQuery](https://jquery.com)
-
-<p align="right">(<a href="#top">back to top</a>)</p> -->
-
-## Architecture explanation
-The code is divided into several modules, including `main stage`,`environment`, `RL algorithm`, `replay buffer`, `configuration`
-### main stage
+## Architecture Explanation
+The code is divided into several different types of modules, including `main stage`,`environment`, `RL algorithm`, `replay buffer`, `configuration`. All of these modules are designed to be independent of each other, so that you can easily replace one module with another module that has the same interface. For example, you can easily replace the DDPG algorithm with the TD3 algorithm, or replace the gym environment with a custom environment, etc.
+### Main Stage
 <img src="images/main stage.svg" alt="Logo" width="400" height="400">
 
-This module describes what the code is going to do, for example : off-policy training, on-policy training, collect expert for imitation learning.
-### environment
+`Main stage` controls the whole workflow of the entire experiment. For example, training and testing of a RL agent can be a main stage, collecting trajectory data from a pretrained agent can also be a main stage, etc.
+### Environment
 <img src="images/env.svg" alt="Logo" width="400" height="400">
 
-This module is about all kind of manipulation of the RL environemnt like state transformation, wrapping,...
-### RL algorithm
+`Environment` provides the environment for the RL agent to interact with. It can be a gym environment or a custom environment. User can choose different environment wrapper for the chosen environment or create your own one.
+### RL Algorithm
 <img src="images/rl algo.svg" alt="Logo" width="400" height="400">
 
-All kinds of RL agent are going to be implemented here, imcluding DQN, DDPG, TD3, SAC, PPO,...
-### replay buffer
+`RL algo` implements some of the most popular RL algorithms, including DQN, DDPG, TD3, SAC, PPO,...
+### Replay Buffer
 <img src="images/replay buffer.svg" alt="Logo" width="400" height="400">
 
-Implements replay buffer like normal replay buffer of prioritized replay buffer.
+`Replay buffer` includes different kinds of replay buffers. For example, the normal replay buffer, the hindsight experience replay buffer and the replay buffer for onpolicy training are implemented in this project.
 <!-- ### configuration
 Configurations of RL algorithms. -->
 <!-- GETTING STARTED -->
