@@ -54,7 +54,7 @@
 ## About The Project
 
 <!-- [![Product Name Screen Shot][product-screenshot]](https://example.com) -->
-This is a RL framework that aims to improve the development speed of RL algorithms. Each component of a RL algorithm is seperated clearly by different module so as to achive high maintainability and flexibility. This project is not developed based on stable baseline or openai spinning up (some of the hyper-parameter or model implementation are inspired by them) so that it can be more flexible and easy to understand. The main goal of this project is to provide a clear and easy-to-understand codebase for RL researchers and developers to easily develop and test their own algorithms instead of being stuck in the complex or delicate codebase that is hard to trace and modify. 
+This is a RL framework that aims to improve the development speed of RL algorithms. Each component of a RL algorithm is separated clearly by different module so as to achieve high maintainability and flexibility. This project is not developed based on stable baseline or openai spinning up (some of the hyper-parameter or model implementation are inspired by them) so that it can be more flexible and easy to understand. The main goal of this project is to provide a clear and easy-to-understand codebase for RL researchers and developers to easily develop and test their own algorithms instead of being stuck in the complex or delicate codebase that is hard to trace and modify. 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
